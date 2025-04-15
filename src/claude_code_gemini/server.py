@@ -75,9 +75,7 @@ class ColorizedFormatter(logging.Formatter):
 # Apply custom formatter to console handler
 for handler in logger.handlers:
     if isinstance(handler, logging.StreamHandler):
-        handler.setFormatter(
-            ColorizedFormatter("%(asctime)s - %(levelname)s - %(message)s")
-        )
+        handler.setFormatter(ColorizedFormatter("%(asctime)s - %(levelname)s - %(message)s"))
 
 app = FastAPI()
 
@@ -118,15 +116,11 @@ def clean_gemini_schema(schema: Any) -> Any:
         if schema.get("type") == "string" and "format" in schema:
             allowed_formats = {"enum", "date-time"}
             if schema["format"] not in allowed_formats:
-                logger.debug(
-                    f"Removing unsupported format '{schema['format']}' for string type in Gemini schema."
-                )
+                logger.debug(f"Removing unsupported format '{schema['format']}' for string type in Gemini schema.")
                 schema.pop("format")
 
         # Recursively clean nested schemas (properties, items, etc.)
-        for key, value in list(
-            schema.items()
-        ):  # Use list() to allow modification during iteration
+        for key, value in list(schema.items()):  # Use list() to allow modification during iteration
             schema[key] = clean_gemini_schema(value)
     elif isinstance(schema, list):
         # Recursively clean items in a list
@@ -165,15 +159,7 @@ class SystemContent(BaseModel):
 
 class Message(BaseModel):
     role: Literal["user", "assistant"]
-    content: (
-        str
-        | list[
-            ContentBlockText
-            | ContentBlockImage
-            | ContentBlockToolUse
-            | ContentBlockToolResult
-        ]
-    )
+    content: str | list[ContentBlockText | ContentBlockImage | ContentBlockToolUse | ContentBlockToolResult]
 
 
 class Tool(BaseModel):
@@ -243,9 +229,7 @@ class MessagesRequest(BaseModel):
         else:
             # Fallback: Always map to BIG_MODEL regardless of input
             new_model = f"gemini/{BIG_MODEL}"
-            logger.warning(
-                f"⚠️ No explicit mapping for model '{original_model}'; defaulting to '{new_model}'."
-            )
+            logger.warning(f"⚠️ No explicit mapping for model '{original_model}'; defaulting to '{new_model}'.")
 
         # Store the original model in the values dictionary
         values = info.data
@@ -269,9 +253,7 @@ class TokenCountRequest(BaseModel):
         # For token counting, use the same Gemini-only mapping as above.
         original_model = v
         new_model = v
-        logger.debug(
-            f"📋 TOKEN COUNT VALIDATION: Original='{original_model}'; converting exclusively to Gemini model."
-        )
+        logger.debug(f"📋 TOKEN COUNT VALIDATION: Original='{original_model}'; converting exclusively to Gemini model.")
 
         # Remove any provider prefixes
         clean_v = v
@@ -324,9 +306,7 @@ class MessagesResponse(BaseModel):
     role: Literal["assistant"] = "assistant"
     content: list[ContentBlockText | ContentBlockToolUse]
     type: Literal["message"] = "message"
-    stop_reason: (
-        Literal["end_turn", "max_tokens", "stop_sequence", "tool_use"] | None
-    ) = None
+    stop_reason: Literal["end_turn", "max_tokens", "stop_sequence", "tool_use"] | None = None
     stop_sequence: str | None = None
     usage: Usage
 
@@ -428,11 +408,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
             # Special handling for tool_result in user messages
             # OpenAI/LiteLLM format expects the assistant to call the tool,
             # and the user's next message to include the result as plain text
-            if msg.role == "user" and any(
-                block.type == "tool_result"
-                for block in content
-                if hasattr(block, "type")
-            ):
+            if msg.role == "user" and any(block.type == "tool_result" for block in content if hasattr(block, "type")):
                 # For user messages with tool_result, split into separate messages
                 text_content = ""
 
@@ -443,11 +419,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
                             text_content += block.text + "\n"
                         elif block.type == "tool_result":
                             # Add tool result as a message by itself - simulate the normal flow
-                            tool_id = (
-                                block.tool_use_id
-                                if hasattr(block, "tool_use_id")
-                                else ""
-                            )
+                            tool_id = block.tool_use_id if hasattr(block, "tool_use_id") else ""
 
                             # Handle different formats of tool result content
                             result_content = ""
@@ -457,33 +429,19 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
                                 elif isinstance(block.content, list):
                                     # If content is a list of blocks, extract text from each
                                     for content_block in block.content:
-                                        if (
-                                            hasattr(content_block, "type")
-                                            and content_block.type == "text"
-                                        ):
+                                        if hasattr(content_block, "type") and content_block.type == "text":
                                             result_content += content_block.text + "\n"
-                                        elif (
-                                            isinstance(content_block, dict)
-                                            and content_block.get("type") == "text"
-                                        ):
-                                            result_content += (
-                                                content_block.get("text", "") + "\n"
-                                            )
+                                        elif isinstance(content_block, dict) and content_block.get("type") == "text":
+                                            result_content += content_block.get("text", "") + "\n"
                                         elif isinstance(content_block, dict):
                                             # Handle any dict by trying to extract text or convert to JSON
                                             if "text" in content_block:
-                                                result_content += (
-                                                    content_block.get("text", "") + "\n"
-                                                )
+                                                result_content += content_block.get("text", "") + "\n"
                                             else:
                                                 try:
-                                                    result_content += (
-                                                        json.dumps(content_block) + "\n"
-                                                    )
+                                                    result_content += json.dumps(content_block) + "\n"
                                                 except:
-                                                    result_content += (
-                                                        str(content_block) + "\n"
-                                                    )
+                                                    result_content += str(content_block) + "\n"
                                 elif isinstance(block.content, dict):
                                     # Handle dictionary content
                                     if block.content.get("type") == "text":
@@ -501,9 +459,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
                                         result_content = "Unparseable content"
 
                             # In OpenAI format, tool results come from the user (rather than being content blocks)
-                            text_content += (
-                                f"Tool result for {tool_id}:\n{result_content}\n"
-                            )
+                            text_content += f"Tool result for {tool_id}:\n{result_content}\n"
 
                 # Add as a single user message with all the content
                 messages.append({"role": "user", "content": text_content.strip()})
@@ -513,13 +469,9 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
                 for block in content:
                     if hasattr(block, "type"):
                         if block.type == "text":
-                            processed_content.append(
-                                {"type": "text", "text": block.text}
-                            )
+                            processed_content.append({"type": "text", "text": block.text})
                         elif block.type == "image":
-                            processed_content.append(
-                                {"type": "image", "source": block.source}
-                            )
+                            processed_content.append({"type": "image", "source": block.source})
                         elif block.type == "tool_use":
                             # Handle tool use blocks if needed
                             processed_content.append(
@@ -534,31 +486,23 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
                             # Handle different formats of tool result content
                             processed_content_block = {
                                 "type": "tool_result",
-                                "tool_use_id": block.tool_use_id
-                                if hasattr(block, "tool_use_id")
-                                else "",
+                                "tool_use_id": block.tool_use_id if hasattr(block, "tool_use_id") else "",
                             }
 
                             # Process the content field properly
                             if hasattr(block, "content"):
                                 if isinstance(block.content, str):
                                     # If it's a simple string, create a text block for it
-                                    processed_content_block["content"] = [
-                                        {"type": "text", "text": block.content}
-                                    ]
+                                    processed_content_block["content"] = [{"type": "text", "text": block.content}]
                                 elif isinstance(block.content, list):
                                     # If it's already a list of blocks, keep it
                                     processed_content_block["content"] = block.content
                                 else:
                                     # Default fallback
-                                    processed_content_block["content"] = [
-                                        {"type": "text", "text": str(block.content)}
-                                    ]
+                                    processed_content_block["content"] = [{"type": "text", "text": str(block.content)}]
                             else:
                                 # Default empty content
-                                processed_content_block["content"] = [
-                                    {"type": "text", "text": ""}
-                                ]
+                                processed_content_block["content"] = [{"type": "text", "text": ""}]
 
                             processed_content.append(processed_content_block)
 
@@ -566,9 +510,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
 
     # Standard parameters across all providers
     max_tokens_value = min(anthropic_request.max_tokens, 16384)
-    logger.debug(
-        f"Setting token limit to {max_tokens_value} (original value: {anthropic_request.max_tokens})"
-    )
+    logger.debug(f"Setting token limit to {max_tokens_value} (original value: {anthropic_request.max_tokens})")
 
     # Create LiteLLM request dict with standard parameters
     litellm_request = {
@@ -611,9 +553,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> dict[str
             # Clean the schema if targeting a Gemini model
             input_schema = tool_dict.get("input_schema", {})
             if is_gemini_model:
-                logger.debug(
-                    f"Cleaning schema for Gemini tool: {tool_dict.get('name')}"
-                )
+                logger.debug(f"Cleaning schema for Gemini tool: {tool_dict.get('name')}")
                 input_schema = clean_gemini_schema(input_schema)
 
             # Create OpenAI-compatible function tool
@@ -676,28 +616,16 @@ def convert_litellm_to_anthropic(
             # Extract data from ModelResponse object directly
             choices = litellm_response.choices
             message = choices[0].message if choices and len(choices) > 0 else None
-            content_text = (
-                message.content if message and hasattr(message, "content") else ""
-            )
-            tool_calls = (
-                message.tool_calls
-                if message and hasattr(message, "tool_calls")
-                else None
-            )
-            finish_reason = (
-                choices[0].finish_reason if choices and len(choices) > 0 else "stop"
-            )
+            content_text = message.content if message and hasattr(message, "content") else ""
+            tool_calls = message.tool_calls if message and hasattr(message, "tool_calls") else None
+            finish_reason = choices[0].finish_reason if choices and len(choices) > 0 else "stop"
             usage_info = litellm_response.usage
             response_id = getattr(litellm_response, "id", f"msg_{uuid.uuid4()}")
         else:
             # For backward compatibility - handle dict responses
             # If response is a dict, use it, otherwise try to convert to dict
             try:
-                response_dict = (
-                    litellm_response
-                    if isinstance(litellm_response, dict)
-                    else litellm_response.dict()
-                )
+                response_dict = litellm_response if isinstance(litellm_response, dict) else litellm_response.dict()
             except AttributeError:
                 # If .dict() fails, try to use model_dump or __dict__
                 try:
@@ -716,16 +644,10 @@ def convert_litellm_to_anthropic(
 
             # Extract the content from the response dict
             choices = response_dict.get("choices", [{}])
-            message = (
-                choices[0].get("message", {}) if choices and len(choices) > 0 else {}
-            )
+            message = choices[0].get("message", {}) if choices and len(choices) > 0 else {}
             content_text = message.get("content", "")
             tool_calls = message.get("tool_calls", None)
-            finish_reason = (
-                choices[0].get("finish_reason", "stop")
-                if choices and len(choices) > 0
-                else "stop"
-            )
+            finish_reason = choices[0].get("finish_reason", "stop") if choices and len(choices) > 0 else "stop"
             usage_info = response_dict.get("usage", {})
             response_id = response_dict.get("id", f"msg_{uuid.uuid4()}")
 
@@ -757,23 +679,17 @@ def convert_litellm_to_anthropic(
                     function = getattr(tool_call, "function", None)
                     tool_id = getattr(tool_call, "id", f"tool_{uuid.uuid4()}")
                     name = getattr(function, "name", "") if function else ""
-                    arguments = (
-                        getattr(function, "arguments", "{}") if function else "{}"
-                    )
+                    arguments = getattr(function, "arguments", "{}") if function else "{}"
 
                 # Convert string arguments to dict if needed
                 if isinstance(arguments, str):
                     try:
                         arguments = json.loads(arguments)
                     except json.JSONDecodeError:
-                        logger.warning(
-                            f"Failed to parse tool arguments as JSON: {arguments}"
-                        )
+                        logger.warning(f"Failed to parse tool arguments as JSON: {arguments}")
                         arguments = {"raw": arguments}
 
-                logger.debug(
-                    f"Adding tool_use block: id={tool_id}, name={name}, input={arguments}"
-                )
+                logger.debug(f"Adding tool_use block: id={tool_id}, name={name}, input={arguments}")
 
                 content.append(
                     {
@@ -785,9 +701,7 @@ def convert_litellm_to_anthropic(
                 )
         elif tool_calls and not is_claude_model:
             # For non-Claude models, convert tool calls to text format
-            logger.debug(
-                f"Converting tool calls to text for non-Claude model: {clean_model}"
-            )
+            logger.debug(f"Converting tool calls to text for non-Claude model: {clean_model}")
 
             # We'll append tool info to the text content
             tool_text = "\n\nTool usage:\n"
@@ -807,9 +721,7 @@ def convert_litellm_to_anthropic(
                     function = getattr(tool_call, "function", None)
                     tool_id = getattr(tool_call, "id", f"tool_{uuid.uuid4()}")
                     name = getattr(function, "name", "") if function else ""
-                    arguments = (
-                        getattr(function, "arguments", "{}") if function else "{}"
-                    )
+                    arguments = getattr(function, "arguments", "{}") if function else "{}"
 
                 # Convert string arguments to dict if needed
                 if isinstance(arguments, str):
@@ -869,9 +781,7 @@ def convert_litellm_to_anthropic(
         import traceback
 
         error_traceback = traceback.format_exc()
-        error_message = (
-            f"Error converting response: {str(e)}\n\nFull traceback:\n{error_traceback}"
-        )
+        error_message = f"Error converting response: {str(e)}\n\nFull traceback:\n{error_traceback}"
         logger.error(error_message)
 
         # In case of any error, create a fallback response
@@ -992,11 +902,7 @@ async def handle_streaming(response_generator, original_request: MessagesRequest
                                 yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
                             # If we've accumulated text but not sent it, we need to emit it now
                             # This handles the case where the first delta has both text and a tool call
-                            elif (
-                                accumulated_text
-                                and not text_sent
-                                and not text_block_closed
-                            ):
+                            elif accumulated_text and not text_sent and not text_block_closed:
                                 # Send the accumulated text
                                 text_sent = True
                                 yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': accumulated_text}})}\n\n"
@@ -1032,21 +938,11 @@ async def handle_streaming(response_generator, original_request: MessagesRequest
                                 # Extract function info
                                 if isinstance(tool_call, dict):
                                     function = tool_call.get("function", {})
-                                    name = (
-                                        function.get("name", "")
-                                        if isinstance(function, dict)
-                                        else ""
-                                    )
-                                    tool_id = tool_call.get(
-                                        "id", f"toolu_{uuid.uuid4().hex[:24]}"
-                                    )
+                                    name = function.get("name", "") if isinstance(function, dict) else ""
+                                    tool_id = tool_call.get("id", f"toolu_{uuid.uuid4().hex[:24]}")
                                 else:
                                     function = getattr(tool_call, "function", None)
-                                    name = (
-                                        getattr(function, "name", "")
-                                        if function
-                                        else ""
-                                    )
+                                    name = getattr(function, "name", "") if function else ""
                                     tool_id = getattr(
                                         tool_call,
                                         "id",
@@ -1061,18 +957,10 @@ async def handle_streaming(response_generator, original_request: MessagesRequest
                             arguments = None
                             if isinstance(tool_call, dict) and "function" in tool_call:
                                 function = tool_call.get("function", {})
-                                arguments = (
-                                    function.get("arguments", "")
-                                    if isinstance(function, dict)
-                                    else ""
-                                )
+                                arguments = function.get("arguments", "") if isinstance(function, dict) else ""
                             elif hasattr(tool_call, "function"):
                                 function = getattr(tool_call, "function", None)
-                                arguments = (
-                                    getattr(function, "arguments", "")
-                                    if function
-                                    else ""
-                                )
+                                arguments = getattr(function, "arguments", "") if function else ""
 
                             # If we have arguments, send them as a delta
                             if arguments:
@@ -1090,9 +978,7 @@ async def handle_streaming(response_generator, original_request: MessagesRequest
                                     args_json = arguments
 
                                 # Add to accumulated tool content
-                                tool_content += (
-                                    args_json if isinstance(args_json, str) else ""
-                                )
+                                tool_content += args_json if isinstance(args_json, str) else ""
 
                                 # Send the update
                                 yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': anthropic_tool_index, 'delta': {'type': 'input_json_delta', 'partial_json': args_json}})}\n\n"
@@ -1164,9 +1050,7 @@ async def handle_streaming(response_generator, original_request: MessagesRequest
         import traceback
 
         error_traceback = traceback.format_exc()
-        error_message = (
-            f"Error in streaming: {str(e)}\n\nFull traceback:\n{error_traceback}"
-        )
+        error_message = f"Error in streaming: {str(e)}\n\nFull traceback:\n{error_traceback}"
         logger.error(error_message)
 
         # Send error message_delta
@@ -1201,9 +1085,7 @@ async def create_message(request: MessagesRequest, raw_request: Request):
         elif clean_model.startswith("openai/"):
             clean_model = clean_model[len("openai/") :]
 
-        logger.debug(
-            f"📊 PROCESSING REQUEST: Model={request.model}, Stream={request.stream}"
-        )
+        logger.debug(f"📊 PROCESSING REQUEST: Model={request.model}, Stream={request.stream}")
 
         # Convert Anthropic request to LiteLLM format
         litellm_request = convert_anthropic_to_litellm(request)
@@ -1289,20 +1171,14 @@ async def create_message(request: MessagesRequest, raw_request: Request):
                         error_details[key] = str(value)
                     except:
                         # If conversion fails, use a placeholder
-                        error_details[key] = (
-                            f"<{type(value).__name__} not serializable>"
-                        )
+                        error_details[key] = f"<{type(value).__name__} not serializable>"
 
         # Log all error details
         try:
-            logger.error(
-                f"Error processing request: {json.dumps(error_details, indent=2)}"
-            )
+            logger.error(f"Error processing request: {json.dumps(error_details, indent=2)}")
         except TypeError:
             # Fallback if json serialization fails
-            logger.error(
-                f"Error processing request (details not serializable): {str(e)}"
-            )
+            logger.error(f"Error processing request (details not serializable): {str(e)}")
 
         # Format error for response
         error_message = f"Error: {str(e)}"
@@ -1406,9 +1282,7 @@ class Colors:
     DIM = "\033[2m"
 
 
-def log_request_beautifully(
-    method, path, claude_model, openai_model, num_messages, num_tools, status_code
-):
+def log_request_beautifully(method, path, claude_model, openai_model, num_messages, num_tools, status_code):
     """Log requests in a beautiful, twitter-friendly format showing Claude to OpenAI mapping."""
     # Format the Claude model name nicely
     claude_display = f"{Colors.CYAN}{claude_model}{Colors.RESET}"
