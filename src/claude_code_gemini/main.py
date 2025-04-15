@@ -9,7 +9,7 @@ import subprocess
 import sys
 import socket
 import time
-import shutil  # Added import
+import shutil
 
 PROXY_PORT = 8082
 SCREEN_SESSION_NAME = "gemini_proxy"
@@ -34,38 +34,29 @@ def start_proxy_server():
 
 
 def launch_tui():
-    # Launch interactive TUI via screen in the current terminal
+    # Launch interactive TUI by replacing the current process with claude
     env = os.environ.copy()
     env["ANTHROPIC_BASE_URL"] = "http://localhost:8082"
 
-    if not shutil.which("screen"):
-        print(
-            "Error: 'screen' command not found. Please install screen (e.g., sudo apt install screen).", file=sys.stderr
-        )
+    if not shutil.which("claude"):
+        print("Error: 'claude' command not found in PATH. Please install Claude Code:", file=sys.stderr)
+        print("npm install -g @anthropic-ai/claude-code", file=sys.stderr)
         sys.exit(1)
 
+    # Use os.execvpe to replace the current process with claude
+    # This completely hands over control to claude without leaving a parent process
     try:
-        result = subprocess.run(["screen", "claude"], check=True, env=env)
-    except FileNotFoundError:
-        # This case should technically be caught by shutil.which, but included for robustness
-        print("Error: 'screen' command not found. Please install screen.", file=sys.stderr)
+        claude_path = shutil.which("claude")
+        os.execvpe(claude_path, ["claude"], env)
+    except Exception as e:
+        print(f"Error launching claude: {e}", file=sys.stderr)
         sys.exit(1)
-    except subprocess.CalledProcessError as e:
-        # Error likely means claude command itself failed within screen
-        sys.exit(e.returncode)
-    except KeyboardInterrupt:
-        # Catch Ctrl+C if the user interrupts screen itself
-        print("\nExiting.")
-        sys.exit(0)
 
 
 def gemini_command():
     """Entry point for the 'gemini' command."""
 
-    if not shutil.which("claude"):
-        print("Error: 'claude' command not found in PATH. Please install Claude Code:")
-        print("npm install -g @anthropic-ai/claude-code")
-        sys.exit(1)
+    # Claude check is now done in launch_tui()
 
     if not os.environ.get("GEMINI_API_KEY"):
         print("Error: GEMINI_API_KEY must be set.")
