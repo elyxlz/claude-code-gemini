@@ -26,9 +26,8 @@ def is_server_running(port):
 
 def start_proxy_server():
     # Start the proxy server in a detached screen session.
-    # Ensure TERM is set for the server process as well, just in case
+    # Set up environment for the server process
     env = os.environ.copy()
-    env['TERM'] = os.environ.get('TERM', 'screen') # Preserve TERM
     subprocess.run(["screen", "-dmS", SCREEN_SESSION_NAME, "gemini-server"], env=env)
     # Wait a bit for the server to start.
     time.sleep(2)
@@ -38,8 +37,7 @@ def launch_tui():
     # Launch interactive TUI via screen in the current terminal
     env = os.environ.copy()
     env["ANTHROPIC_BASE_URL"] = "http://localhost:8082"
-    # Explicitly pass the parent's TERM variable to screen's environment
-    env['TERM'] = os.environ.get('TERM', 'screen') # Use 'screen' as fallback
+    # Use the parent's TERM variable or let screen handle it
 
     if not shutil.which("screen"):
         print("Error: 'screen' command not found. Please install screen (e.g., sudo apt install screen).", file=sys.stderr)
