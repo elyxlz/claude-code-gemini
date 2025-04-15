@@ -9,7 +9,7 @@ import subprocess
 import sys
 import socket
 import time
-import shutil # Added import
+import shutil  # Added import
 
 PROXY_PORT = 8082
 SCREEN_SESSION_NAME = "gemini_proxy"
@@ -37,16 +37,15 @@ def launch_tui():
     # Launch interactive TUI via screen in the current terminal
     env = os.environ.copy()
     env["ANTHROPIC_BASE_URL"] = "http://localhost:8082"
-    # Use the parent's TERM variable or let screen handle it
 
     if not shutil.which("screen"):
-        print("Error: 'screen' command not found. Please install screen (e.g., sudo apt install screen).", file=sys.stderr)
+        print(
+            "Error: 'screen' command not found. Please install screen (e.g., sudo apt install screen).", file=sys.stderr
+        )
         sys.exit(1)
 
     try:
-        # Use '-q' for quieter screen startup/shutdown
-        # Pass the modified environment using the 'env' argument
-        result = subprocess.run(["screen", "-q", "claude"], check=True, env=env)
+        result = subprocess.run(["screen", "claude"], check=True, env=env)
     except FileNotFoundError:
         # This case should technically be caught by shutil.which, but included for robustness
         print("Error: 'screen' command not found. Please install screen.", file=sys.stderr)
