@@ -13,8 +13,8 @@ dependencies = [
 ]
 
 [project.scripts]
-gemini = "claude_code_gemini.server:main"
-gemini-server = "claude_code_gemini.server:run_server"
+gemini = "claude_code_gemini.main:gemini_command"
+gemini-server = "claude_code_gemini.main:server_command"
 
 [build-system]
 requires = ["hatchling"]
