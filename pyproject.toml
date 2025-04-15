@@ -2,7 +2,6 @@
 name = "claude-code-gemini"
 version = "0.1.0"
 description = "Proxy that translates between Claude Code and Gemini API"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi[standard]>=0.115.11",
