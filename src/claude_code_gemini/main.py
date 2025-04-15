@@ -9,7 +9,7 @@ import subprocess
 import sys
 import socket
 import time
-import pty
+import shutil # Added import
 
 PROXY_PORT = 8082
 SCREEN_SESSION_NAME = "gemini_proxy"
@@ -26,19 +26,50 @@ def is_server_running(port):
 
 def start_proxy_server():
     # Start the proxy server in a detached screen session.
-    subprocess.run(["screen", "-dmS", SCREEN_SESSION_NAME, "gemini-server"])
+    # Ensure TERM is set for the server process as well, just in case
+    env = os.environ.copy()
+    env['TERM'] = os.environ.get('TERM', 'screen') # Preserve TERM
+    subprocess.run(["screen", "-dmS", SCREEN_SESSION_NAME, "gemini-server"], env=env)
     # Wait a bit for the server to start.
     time.sleep(2)
 
 
 def launch_tui():
-    # Launch interactive TUI with a pseudo-terminal (assumes the existence of a command named 'claude')
-    os.environ["ANTHROPIC_BASE_URL"] = "http://localhost:8082"
-    pty.spawn(["claude"])
+    # Launch interactive TUI via screen in the current terminal
+    env = os.environ.copy()
+    env["ANTHROPIC_BASE_URL"] = "http://localhost:8082"
+    # Explicitly pass the parent's TERM variable to screen's environment
+    env['TERM'] = os.environ.get('TERM', 'screen') # Use 'screen' as fallback
+
+    if not shutil.which("screen"):
+        print("Error: 'screen' command not found. Please install screen (e.g., sudo apt install screen).", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # Use '-q' for quieter screen startup/shutdown
+        # Pass the modified environment using the 'env' argument
+        result = subprocess.run(["screen", "-q", "claude"], check=True, env=env)
+    except FileNotFoundError:
+        # This case should technically be caught by shutil.which, but included for robustness
+        print("Error: 'screen' command not found. Please install screen.", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        # Error likely means claude command itself failed within screen
+        sys.exit(e.returncode)
+    except KeyboardInterrupt:
+        # Catch Ctrl+C if the user interrupts screen itself
+        print("\nExiting.")
+        sys.exit(0)
 
 
 def gemini_command():
     """Entry point for the 'gemini' command."""
+
+    if not shutil.which("claude"):
+        print("Error: 'claude' command not found in PATH. Please install Claude Code:")
+        print("npm install -g @anthropic-ai/claude-code")
+        sys.exit(1)
+
     if not os.environ.get("GEMINI_API_KEY"):
         print("Error: GEMINI_API_KEY must be set.")
         sys.exit(1)
